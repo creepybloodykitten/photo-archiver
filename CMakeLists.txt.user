@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 13.0.1, 2024-07-12T21:55:55. -->
+<!-- Written by QtCreator 13.0.1, 2024-07-17T09:26:09. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -403,8 +403,8 @@
   <variable>ProjectExplorer.Project.Target.1</variable>
   <valuemap type="QVariantMap">
    <value type="QString" key="DeviceType">Desktop</value>
-   <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">mingw64</value>
-   <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">mingw64</value>
+   <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">mingw64 5.15.13</value>
+   <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">mingw64 5.15.13</value>
    <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">{6bd4416d-edfa-4940-a7d4-663c187eb2c3}</value>
    <value type="qlonglong" key="ProjectExplorer.Target.ActiveBuildConfiguration">0</value>
    <value type="qlonglong" key="ProjectExplorer.Target.ActiveDeployConfiguration">0</value>

@@ -11,8 +11,7 @@
 #include <QImage>
 #include "styled_btn.h"
 
-//временно
-#include <QImageReader>
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -52,7 +51,7 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    //глоабльные переменные
+    //глобальные переменные
     bool mov;
     QPoint startPos;
     double px,py;
@@ -68,12 +67,30 @@ private:
     QByteArray imageData;
     QByteArray compressedData;
 
+    QString filename;
+    int width;
+    int height;
+    std::vector<std::vector<double>> bitY;
+    std::vector<std::vector<double>> compbitCr;
+    std::vector<std::vector<double>> compbitCb;
+
+
+    void initCosTable() {
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                cosTable[i][j] = cos((2 * i + 1) * j * M_PI / (2 * N));
+            }
+        }
+    }
+
+    static const int N = 8;
+    std::vector<std::vector<double>> cosTable;
 
     //методы
-    QByteArray rle(const QByteArray &imageData);
-    QByteArray hfn(const QByteArray &imageData);
-    QByteArray lzw(const QByteArray &imageData);
-    QByteArray dtc(const QByteArray &imageData);
-    QByteArray afc(const QByteArray &imageData);
+    void rle();
+    void hfn();
+    void lzw();
+    void dct(const std::vector<std::vector<double>>& block, std::vector<std::vector<double>>& dctBlock);
+    void afc();
 };
 #endif // MAINWINDOW_H
