@@ -19,6 +19,7 @@ set(PROJECT_SOURCES
         mainwindow.ui
         styled_btn.cpp
         styled_btn.h
+
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -26,6 +27,13 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         styled_btn.h styled_btn.cpp
+        rle.h rle.cpp
+        huffman.h huffman.cpp
+        lzw.h lzw.cpp
+        dct.h dct.cpp
+        afc.h afc.cpp
+
+
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET photoCompressor APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

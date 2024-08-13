@@ -1,9 +1,15 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include "styled_btn.h"
-#include <vector>
-#include <jpeglib.h>
+#include "rle.h"
+#include "huffman.h"
+#include "lzw.h"
+#include "afc.h"
+
+#include <QBuffer>
 #include <cmath>
+
+
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -13,6 +19,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     setWindowFlags(Qt::FramelessWindowHint);//убирает главную рамку
     this->resize(950, 600);
+
 
     openbtn=new styled_btn(this);
     savebtn=new styled_btn(this);
@@ -30,7 +37,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     choice=new QCheckBox(this);
     choice->setText("Сжатие с потерями информации");
-
     QString check_style = R"(
     QCheckBox {
         font-size: 15px;
@@ -49,18 +55,21 @@ MainWindow::MainWindow(QWidget *parent)
     algorigms_box->addItem("Run-Length Encoding");
     algorigms_box->addItem("Алгоритм Хаффмана");
     algorigms_box->addItem("Алгоритм Лемпеля — Зива — Велча");
+    algorigms_box->addItem("Сохранить в формате bmp/tiff/bin без сжатия");
     connect(choice, &QCheckBox::stateChanged, this, &MainWindow::update_cbox);
+
 
     infobefore=new QLabel(this);
     infoafter=new QLabel(this);
     infobefore->setMinimumSize(300,30);
     infoafter->setMinimumSize(300,30);
     infobefore->setText("Исходный:");
-    infoafter->setText("Сжатый:");
+    infoafter->setText("Новый:");
     infobefore->setStyleSheet("font-size:20px;font-weight: 500;");
     infoafter->setStyleSheet("font-size:20px;font-weight: 500;");
     infobefore->move(200,50);
     infoafter->move(650,50);
+
 
     labelbefore=new QLabel(this);
     labelafter=new QLabel(this);
@@ -73,10 +82,6 @@ MainWindow::MainWindow(QWidget *parent)
     labelbefore->setFrameShape(QFrame::Box);
     labelafter->setFrameShape(QFrame::Box);
 
-
-
-    cosTable.resize(N, std::vector<double>(N, 0.0));
-    initCosTable();
 }
 
 MainWindow::~MainWindow()
@@ -132,6 +137,7 @@ void MainWindow::update_cbox()
         algorigms_box->addItem("Run-Length Encoding");
         algorigms_box->addItem("Алгоритм Хаффмана");
         algorigms_box->addItem("Алгоритм Лемпеля — Зива — Велча");
+        algorigms_box->addItem("Сохранить в формате bmp/tiff/bin без сжатия");
     }
 }
 
@@ -140,369 +146,227 @@ void MainWindow::update_cbox()
 //провожу вычисления этих матриц именно здесь для того чтобы этими вычислениями не загружать программу в дальнейшем
 void MainWindow::on_openbtn_clicked()
 {
-    filename=QFileDialog::getOpenFileName(this,"Выберите фотографию формата .tiff или .bmp","C:/", "Image Files (*.bmp *.tiff)");
-    QImage image(filename);
-    width = image.width();
-    height = image.height();
+    compressedData.clear();
+    imageData.clear();//очищаю данные прошлых декомпрессий
+    filename=QFileDialog::getOpenFileName(this,"Выберите фотографию формата tiff/bmp/bin","C:/", "Image File (*.bmp *.tiff);; Image Data (*.bin);");
+    if (filename.endsWith(".bin", Qt::CaseInsensitive))//пользователь загрузил bin (Qt::CaseInsensitive - сравнение без учета регистра)
+    {
+        QFile file(filename);
+        file.open(QIODevice::ReadOnly);
+        QDataStream in(&file);
+        in>>method>>width>>height;
+
+
+        if (method==0)
+        {
+            QImage image(width, height, QImage::Format_RGB888);
+            // чтение данных из файла и заполнение изображения
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    quint8 red, green, blue;
+                    in >> red >> green >> blue; // считываем 3 байта (RGB) для текущего пикселя
+                    QColor pixelColor(red, green, blue);
+                    image.setPixelColor(x, y, pixelColor);
+                }
+            }
+
+            inputimage=image.copy();
+        }
+        file.close();
+
+
+        if(method==1)
+        {
+            RLE::decoding(filename,method,width,height,inputimage);
+        }
+
+        if(method==2)
+        {
+            Huffman::decoding(filename,imageData,method,width,height,inputimage);
+        }
+
+        if(method==3)
+        {
+            LZW::decoding(filename,imageData,inputimage,method,width,height);
+        }
+
+    }
+    else //пользователь загрузил изображение
+    {
+        inputimage.load(filename);
+        width = inputimage.width();
+        height = inputimage.height();
+    }
+
 
     QFileInfo fileInfo(filename);
     double fileSizeKB = fileInfo.size() / 1024.0;
     QString fileSizeString = QString::number(fileSizeKB, 'f', 3);
     this->infobefore->setText("Исходный: " + fileSizeString + " KB");
-
-    bitY.resize(height, std::vector<double>(width));
-    std::vector<std::vector<double>> bitCr(height, std::vector<double>(width));
-    std::vector<std::vector<double>> bitCb(height, std::vector<double>(width));
-
-    this->labelbefore->setPixmap(QPixmap::fromImage(image).scaled(this->labelbefore->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-
-    // Заполнение битовой матрицы
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            QColor color = image.pixelColor(x, y);
-            int r = color.red();
-            int g = color.green();
-            int b = color.blue();
-
-            // Преобразование RGB в YCbCr
-            double yVal = 0.299 * r + 0.587 * g + 0.114 * b;
-            double cbVal = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
-            double crVal = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
-
-            bitY[y][x]=yVal;
-            bitCr[y][x]=crVal;
-            bitCb[y][x]=cbVal;
-
-        }
-    }
-
-    //пробую цветовую субдискретизацию 4 2 0 которая берет среднее значение пикселей
-    compbitCr.resize(height, std::vector<double>(width));
-    compbitCb.resize(height, std::vector<double>(width));
-    for (int y=0;y<height;y+=2){
-        for (int x=0;x<width;x+=2)
-        {
-            double avgCr=(bitCr[y][x]+bitCr[y+1][x]+bitCr[y][x+1]+bitCr[y+1][x+1])/4.0;
-            double avgCb=(bitCb[y][x]+bitCb[y+1][x]+bitCb[y][x+1]+bitCb[y+1][x+1])/4.0;
-
-            compbitCr[y][x]=avgCr;
-            compbitCr[y+1][x]=avgCr;
-            compbitCr[y][x+1]=avgCr;
-            compbitCr[y+1][x+1]=avgCr;
-            compbitCb[y][x]=avgCb;
-            compbitCb[y+1][x]=avgCb;
-            compbitCb[y][x+1]=avgCb;
-            compbitCb[y+1][x+1]=avgCb;
-        }
-    }
-
-
-}
-
-
-void MainWindow::rle()
-{
-
-}
-
-void MainWindow::hfn()
-{
-
-}
-
-void MainWindow::lzw()
-{
-
-}
-void MainWindow::dct(const std::vector<std::vector<double>>& block, std::vector<std::vector<double>>& dctBlock)
-{
-
-    double alpha_u, alpha_v, sum;
-    for (int u = 0; u < N; ++u) {
-        for (int v = 0; v < N; ++v) {
-            sum = 0.0;
-            for (int x = 0; x < N; ++x) {
-                for (int y = 0; y < N; ++y) {
-                    sum += block[x][y] * cosTable[x][u] * cosTable[y][v];
-                }
-            }
-            alpha_u = (u == 0) ? sqrt(1.0 / N) : sqrt(2.0 / N);
-            alpha_v = (v == 0) ? sqrt(1.0 / N) : sqrt(2.0 / N);
-            dctBlock[u][v] = alpha_u * alpha_v * sum;
-        }
-    }
-
-
-
-}
-
-void MainWindow::afc()
-{
-
+    this->labelbefore->setPixmap(QPixmap::fromImage(inputimage).scaled(this->labelbefore->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
 
 void MainWindow::on_dobtn_clicked()
 {
+    imageData.clear();
+    compressedData.clear();
+    //очищаю данные прошлых сжатий
+
     if(filename.isEmpty())
     {
-        ui->statusbar->showMessage("Вы не выбрали изображение для сжатия");
+        ui->statusbar->showMessage("Вы ничего не выбрали");
     }
-    else if(!filename.isEmpty())
+
+    else if(algorigms_box->currentText()=="Сохранить в формате bmp/tiff/bin без сжатия")
+    {
+        ui->statusbar->showMessage("При таком варианте вы можете только сохранить изображение");
+    }
+
+    else if (filename.endsWith(".bin", Qt::CaseInsensitive))//если bin, то задача - декомпрессия
+    {
+        this->labelafter->setPixmap(QPixmap::fromImage(inputimage).scaled(this->labelafter->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        QBuffer buffer(&imageData);
+        buffer.open(QIODevice::WriteOnly);
+        inputimage.save(&buffer,"BMP");
+        double fileSizeKB = static_cast<double>(buffer.size()) / 1024;
+        QString fileSizeString = QString::number(fileSizeKB, 'f', 3);
+        this->infoafter->setText("Новый: "+fileSizeString+" KB");
+        ui->statusbar->showMessage("Успешно разжато");
+    }
+    else// если bmp/tiff, то задача - сжать
     {
         ui->statusbar->clearMessage();
         if(algorigms_box->currentText()=="Run-Length Encoding")
         {
-            rle();
+            datasize=RLE::encoding(compressedData,method,width,height,inputimage);
+            this->labelafter->setPixmap(QPixmap::fromImage(inputimage).scaled(this->labelafter->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
         else if(algorigms_box->currentText()=="Алгоритм Хаффмана")
         {
-            hfn();
+            datasize=Huffman::encoding(compressedData,method,width,height,inputimage);
+            this->labelafter->setPixmap(QPixmap::fromImage(inputimage).scaled(this->labelafter->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+
         }
         else if(algorigms_box->currentText()=="Алгоритм Лемпеля — Зива — Велча")
         {
-            lzw();
+            datasize=LZW::encoding(imageData,compressedData,inputimage,method,width,height);
+            this->labelafter->setPixmap(QPixmap::fromImage(inputimage).scaled(this->labelafter->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
         else if(algorigms_box->currentText()=="Дискретное косинусное преобразование")
         {
 
-            std::vector<std::vector<double>> dctbitY(height, std::vector<double>(width, 0.0));
-            std::vector<std::vector<double>> dctbitCr(height, std::vector<double>(width, 0.0));
-            std::vector<std::vector<double>> dctbitCb(height, std::vector<double>(width, 0.0));
-            // Применение DCT к каждому блоку 8x8
-            for (int i = 0; i < height; i += 8) {
-                for (int j = 0; j < width; j += 8) {
-                    // Извлечение блока 8x8
-                    std::vector<std::vector<double>> blockY(8, std::vector<double>(8, 0.0));
-                    std::vector<std::vector<double>> blockCr(8, std::vector<double>(8, 0.0));
-                    std::vector<std::vector<double>> blockCb(8, std::vector<double>(8, 0.0));
-
-
-                    for (int x = 0; x < 8; ++x) {
-                        for (int y = 0; y < 8; ++y) {
-                            blockY[x][y] = bitY[i + x][j + y];
-                            blockCr[x][y] = compbitCr[i + x][j + y];
-                            blockCb[x][y] = compbitCb[i + x][j + y];
-                        }
-                    }
-
-                    // Выполнение DCT для блока
-                    std::vector<std::vector<double>> dctBlockY(8, std::vector<double>(8, 0.0));
-                    std::vector<std::vector<double>> dctBlockCr(8, std::vector<double>(8, 0.0));
-                    std::vector<std::vector<double>> dctBlockCb(8, std::vector<double>(8, 0.0));
-                    dct(blockY, dctBlockY);
-                    //dct(blockCr,dctBlockCr);
-                    //dct(blockCb,dctBlockCb);
-
-
-                    // Запись результатов DCT обратно в изображение
-                    for (int x = 0; x < 8; ++x) {
-                        for (int y = 0; y < 8; ++y) {
-                            dctbitY[i + x][j + y] = dctBlockY[x][y];
-                            dctbitCr[i + x][j + y] = dctBlockCr[x][y];
-                            dctbitCb[i + x][j + y] = dctBlockCb[x][y];
-                        }
-                    }
-                }
-            }
-            ui->statusbar->showMessage("Успешно сжато");
-
-
-
-
         }
         else if(algorigms_box->currentText()=="Алгоритм фрактального сжатия")
         {
-            afc();
+            datasize=AFC::encoding(compressedData,method,width,height,inputimage);
+            this->labelafter->setPixmap(QPixmap::fromImage(inputimage).scaled(this->labelafter->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
-        /*
-        QPixmap picafter;
-        //picafter.loadFromData(compressedData);
-        picafter.loadFromData(imageData,"JPEG");
-        this->labelafter->setPixmap(picafter.scaled(this->labelafter->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-
-        double fileSizeKB = static_cast<double>(compressedData.size()) / 1024;
+        double fileSizeKB = static_cast<double>(datasize) / 1024;
         QString fileSizeString = QString::number(fileSizeKB, 'f', 3);
-        this->infoafter->setText("Сжатый: "+fileSizeString+" KB");
+        this->infoafter->setText("Новый: "+fileSizeString+" KB");
+        ui->statusbar->showMessage("Успешно сжато");
 
-        */
     }
+
 }
 
 void MainWindow::on_savebtn_clicked()
 {
-    /*
-    QString selectedFolderPath = QFileDialog::getExistingDirectory(this, "Выберите путь сохранения изображения", "C:/");
-    QImage save_img;
-    if(save_img.loadFromData(compressedData,"JPEG"))
-    {
-        save_img.save(selectedFolderPath,"JPEG");
-    }
-    */
-
-
     if(filename.isEmpty())
     {
-        ui->statusbar->showMessage("Вы не выбрали изображение для сжатия");
+        ui->statusbar->showMessage("Вы не выбрали изображение");
     }
-    else if(compressedData.isEmpty())
+
+
+
+    else if (algorigms_box->currentText()=="Сохранить в формате bmp/tiff/bin без сжатия")
     {
-        /*
-        QString outputFilePath = QFileDialog::getSaveFileName(nullptr, "Save Image", "", "JPEG Files (*.jpg *.jpeg)");
-        QImage image(width, height, QImage::Format_RGB32);
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                double yVal = bitY[y][x];
-                double cbVal = compbitCb[y][x];
-                double crVal = compbitCr[y][x];
 
-                // Обратное преобразование YCbCr в RGB
-                int r = std::round(yVal + 1.402 * (crVal - 128));
-                int g = std::round(yVal - 0.344136 * (cbVal - 128) - 0.714136 * (crVal - 128));
-                int b = std::round(yVal + 1.772 * (cbVal - 128));
-
-                // Ограничиваем значения от 0 до 255
-                r = std::clamp(r, 0, 255);
-                g = std::clamp(g, 0, 255);
-                b = std::clamp(b, 0, 255);
-
-                // Устанавливаем пиксель в результирующем изображении
-                image.setPixelColor(x, y, QColor(r, g, b));
-
+        if(filename.endsWith(".bmp", Qt::CaseInsensitive) || filename.endsWith(".tiff", Qt::CaseInsensitive))
+        {
+            QString filePath = QFileDialog::getSaveFileName(this, "Выберите куда сохранить сжатое изображение", "", "Image Data (*.bin);");
+            QFile file(filePath);
+            file.open(QIODevice::WriteOnly );
+            QDataStream out(&file);
+            //записываю размер файла и метод который используется для сжатия
+            method=0;
+            out<<method<<width<<height;
+            for (int y = 0; y < height; ++y)
+            {
+                for (int x = 0; x < width; ++x)
+                {
+                    QColor pixelColor = inputimage.pixelColor(x, y);
+                    quint8 red = pixelColor.red();
+                    quint8 green = pixelColor.green();
+                    quint8 blue = pixelColor.blue();
+                    out << red << green << blue;
+                }
             }
-        }
-        struct jpeg_compress_struct cinfo;
-        struct jpeg_error_mgr jerr;
-
-        cinfo.err = jpeg_std_error(&jerr);
-        jpeg_create_compress(&cinfo);
-
-        const char* ffilename=filename.toStdString().c_str();
-        FILE* outfile = fopen(ffilename, "wb");
-
-
-        jpeg_stdio_dest(&cinfo, outfile);
-
-        cinfo.image_width = width;
-        cinfo.image_height = height;
-        cinfo.input_components = 3;
-        cinfo.in_color_space = JCS_RGB;
-
-        jpeg_set_defaults(&cinfo);
-        jpeg_set_quality(&cinfo, 100, TRUE); // Устанавливаем качество на 100 (без сжатия)
-
-        jpeg_start_compress(&cinfo, TRUE);
-
-        JSAMPROW row_pointer;
-        std::vector<unsigned char> row_data(width * 3);
-
-        while (cinfo.next_scanline < cinfo.image_height) {
-            for (int x = 0; x < width; ++x) {
-                QColor color = image.pixelColor(x, cinfo.next_scanline);
-                row_data[x * 3] = color.red();
-                row_data[x * 3 + 1] = color.green();
-                row_data[x * 3 + 2] = color.blue();
-            }
-            row_pointer = row_data.data();
-            jpeg_write_scanlines(&cinfo, &row_pointer, 1);
+            file.close();
+            ui->statusbar->showMessage("Успешно сохранено");
         }
 
-        jpeg_finish_compress(&cinfo);
-        jpeg_destroy_compress(&cinfo);
-        fclose(outfile);
-        */
-
-
-
-
-
-        /*
-        ui->statusbar->showMessage("Вы не сжали изображение");
-        QImage outputImage(width, height, QImage::Format_RGB32);
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                //Pixel pixel = bitMatrix[y][x];
-                //outputImage.setPixel(x, y, qRgb(pixel.r, pixel.g, pixel.b));
-                int pixelValue = static_cast<int>(compbitCb[y][x]);
-                outputImage.setPixel(x, y, qRgb(pixelValue,pixelValue,pixelValue));
+        else if (filename.endsWith(".bin", Qt::CaseInsensitive))
+        {
+            QString filePath = QFileDialog::getSaveFileName(this, "Выберите куда сохранить изображение", "", "Image BMP File (*.bmp);;Image BMP File(*.tiff);");
+            if(filePath.endsWith(".bmp", Qt::CaseInsensitive))
+            {
+                inputimage.save(filePath,"BMP");
             }
-        }
-        QString filePath = QFileDialog::getSaveFileName(this, "Сохранить изображение", "", "JPEG Image (*.jpg *.jpeg)");
-        outputImage.save(filePath, "JPEG");
-        ui->statusbar->showMessage("Успешно");
-        */
-
-
-
-
-
-
-        /*
-        QImage outputImage(width, height, QImage::Format_RGB32);
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                double yVal = bitY[y][x];
-                double cbVal = compbitCb[y][x];
-                double crVal = compbitCr[y][x];
-
-                // Обратное преобразование YCbCr в RGB
-                int r = std::round(yVal + 1.402 * (crVal - 128));
-                int g = std::round(yVal - 0.344136 * (cbVal - 128) - 0.714136 * (crVal - 128));
-                int b = std::round(yVal + 1.772 * (cbVal - 128));
-
-                // Ограничиваем значения от 0 до 255
-                r = std::clamp(r, 0, 255);
-                g = std::clamp(g, 0, 255);
-                b = std::clamp(b, 0, 255);
-
-                // Устанавливаем пиксель в результирующем изображении
-                outputImage.setPixelColor(x, y, QColor(r, g, b));
-
+            else
+            {
+                inputimage.save(filePath,"TIFF");
             }
+            ui->statusbar->showMessage("Успешно сохранено");
         }
-        QString filePath = QFileDialog::getSaveFileName(this, "Сохранить изображение", "", "JPEG Image (*.jpg *.jpeg)");
-        outputImage.save(filePath, "JPEG");
-        ui->statusbar->showMessage("Успешно");
-        */
     }
+
+
+
+
+    else if (filename.endsWith(".bmp", Qt::CaseInsensitive) || filename.endsWith(".tiff", Qt::CaseInsensitive))
+    {
+        if(method==1||method==2||method==3)
+        {
+            QString filePath = QFileDialog::getSaveFileName(this, "Выберите куда сохранить сжатое изображение", "", "Image Data (*.bin);");
+            QFile file(filePath);
+            file.open(QIODevice::WriteOnly);
+            file.write(compressedData);
+            file.close();
+
+        }
+        ui->statusbar->showMessage("Успешно сохранено");
+    }
+
+
+
+
+    else if(filename.endsWith(".bin", Qt::CaseInsensitive))
+    {
+        if(method==1||method==2)
+        {
+            QString filePath = QFileDialog::getSaveFileName(this, "Выберите куда сохранить изображение", "", "Image BMP File (*.bmp);;Image BMP File(*.tiff);");
+            if(filePath.endsWith(".bmp", Qt::CaseInsensitive))
+            {
+                inputimage.save(filePath,"BMP");
+            }
+            else
+            {
+                inputimage.save(filePath,"TIFF");
+            }
+        }
+        ui->statusbar->showMessage("Успешно сохранено");
+    }
+
+
+
     else
     {
-
-        /*
-        QImage image;
-        if (image.loadFromData(imageData, "JPEG")) {
-            QString filePath = QFileDialog::getSaveFileName(this, "Сохранить изображение", "", "JPEG Image (*.jpg *.jpeg)");
-            if (!filePath.isEmpty()) {
-                image.save(filePath, "JPEG");
-            }
-        } else {
-            qWarning("Не удалось загрузить изображение из QByteArray");
-        }
-        */
-    }
-
-}
-
-
-/*
-// Инициализация битовой матрицы
-struct Pixel {
-    int r;
-    int g;
-    int b;
-};
-std::vector<std::vector<Pixel>> bitMatrix(height, std::vector<Pixel>(width));
-std::vector<std::vector<double>> bitY(height, std::vector<double>(width));
-
-
-// Создание QImage из битовой матрицы
-QImage outputImage(width, height, QImage::Format_RGB32);
-for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-        //Pixel pixel = bitMatrix[y][x];
-        //outputImage.setPixel(x, y, qRgb(pixel.r, pixel.g, pixel.b));
-        int pixelValue = static_cast<int>(compbitCb[y][x]);
-        outputImage.setPixel(x, y, qRgb(pixelValue,pixelValue,pixelValue));
+        ui->statusbar->showMessage("Вы не преобразовали изображение");
     }
 }
-*/
+
+
+
+

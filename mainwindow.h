@@ -12,7 +12,6 @@
 #include "styled_btn.h"
 
 
-
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -66,31 +65,13 @@ private:
     QLabel *labelafter;
     QByteArray imageData;
     QByteArray compressedData;
-
     QString filename;
-    int width;
-    int height;
-    std::vector<std::vector<double>> bitY;
-    std::vector<std::vector<double>> compbitCr;
-    std::vector<std::vector<double>> compbitCb;
+    QImage inputimage;
+    QImage outputimage;
+    quint8 method; //0-без алгоритма 1-rle 2-hfn 3-lzw 4-dct 5-afc
+    quint64 datasize;
+    unsigned short int width;
+    unsigned short int height;
 
-
-    void initCosTable() {
-        for (int i = 0; i < N; ++i) {
-            for (int j = 0; j < N; ++j) {
-                cosTable[i][j] = cos((2 * i + 1) * j * M_PI / (2 * N));
-            }
-        }
-    }
-
-    static const int N = 8;
-    std::vector<std::vector<double>> cosTable;
-
-    //методы
-    void rle();
-    void hfn();
-    void lzw();
-    void dct(const std::vector<std::vector<double>>& block, std::vector<std::vector<double>>& dctBlock);
-    void afc();
 };
 #endif // MAINWINDOW_H
