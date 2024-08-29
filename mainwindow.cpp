@@ -5,6 +5,7 @@
 #include "huffman.h"
 #include "lzw.h"
 #include "afc.h"
+#include "dct.h"
 
 #include <QBuffer>
 #include <cmath>
@@ -84,6 +85,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 }
 
+
 MainWindow::~MainWindow()
 {
     delete ui;
@@ -141,6 +143,9 @@ void MainWindow::update_cbox()
     }
 }
 
+
+
+
 //кнопка загрузки изображения: выводит на экран само изображение+его вес
 //а я получаю битовые матрицы изображения с использованием цветовой субдискретизации 4 2 0
 //провожу вычисления этих матриц именно здесь для того чтобы этими вычислениями не загружать программу в дальнейшем
@@ -189,6 +194,16 @@ void MainWindow::on_openbtn_clicked()
         {
             LZW::decoding(filename,imageData,inputimage,method,width,height);
         }
+        if(method==4)
+        {
+            DCT::decoding(filename,imageData,method,width,height,inputimage);
+
+        }
+
+        if(method==5)
+        {
+            AFC::decoding(filename,imageData,method,width,height,inputimage);
+        }
 
     }
     else //пользователь загрузил изображение
@@ -204,6 +219,7 @@ void MainWindow::on_openbtn_clicked()
     QString fileSizeString = QString::number(fileSizeKB, 'f', 3);
     this->infobefore->setText("Исходный: " + fileSizeString + " KB");
     this->labelbefore->setPixmap(QPixmap::fromImage(inputimage).scaled(this->labelbefore->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+
 }
 
 
@@ -255,7 +271,8 @@ void MainWindow::on_dobtn_clicked()
         }
         else if(algorigms_box->currentText()=="Дискретное косинусное преобразование")
         {
-
+            datasize=DCT::encoding(compressedData,method,width,height,inputimage,outputimage);
+            this->labelafter->setPixmap(QPixmap::fromImage(outputimage).scaled(this->labelafter->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
         else if(algorigms_box->currentText()=="Алгоритм фрактального сжатия")
         {
@@ -320,6 +337,7 @@ void MainWindow::on_savebtn_clicked()
             }
             ui->statusbar->showMessage("Успешно сохранено");
         }
+
     }
 
 
@@ -327,7 +345,7 @@ void MainWindow::on_savebtn_clicked()
 
     else if (filename.endsWith(".bmp", Qt::CaseInsensitive) || filename.endsWith(".tiff", Qt::CaseInsensitive))
     {
-        if(method==1||method==2||method==3)
+        if(method==1||method==2||method==3||method==4||method==5)
         {
             QString filePath = QFileDialog::getSaveFileName(this, "Выберите куда сохранить сжатое изображение", "", "Image Data (*.bin);");
             QFile file(filePath);
@@ -344,9 +362,9 @@ void MainWindow::on_savebtn_clicked()
 
     else if(filename.endsWith(".bin", Qt::CaseInsensitive))
     {
-        if(method==1||method==2)
+        if(method==1||method==2||method==3)
         {
-            QString filePath = QFileDialog::getSaveFileName(this, "Выберите куда сохранить изображение", "", "Image BMP File (*.bmp);;Image BMP File(*.tiff);");
+            QString filePath = QFileDialog::getSaveFileName(this, "Выберите куда сохранить изображение", "", "Image BMP File (*.bmp);;Image TIFF File(*.tiff);");
             if(filePath.endsWith(".bmp", Qt::CaseInsensitive))
             {
                 inputimage.save(filePath,"BMP");

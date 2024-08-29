@@ -1,5 +1,55 @@
 #include "huffman.h"
 
+std::shared_ptr<HuffmanNode> buildHuffmanTree(const std::vector<int> freq)
+{
+    std::priority_queue<std::shared_ptr<HuffmanNode>, std::vector<std::shared_ptr<HuffmanNode>>, Compare> root;
+
+    for (int i = 0; i < freq.size(); ++i)
+    {
+        if (freq[i] > 0)
+        {
+            root.push(std::make_shared<HuffmanNode>(i, freq[i]));
+        }
+    }
+
+    while (root.size() > 1)
+    {
+        std::shared_ptr<HuffmanNode> left = root.top();
+        root.pop();
+        std::shared_ptr<HuffmanNode> right = root.top();
+        root.pop();
+
+        std::shared_ptr<HuffmanNode> newNode = std::make_shared<HuffmanNode>(0, left->frequency + right->frequency);
+        newNode->left = left;
+        newNode->right = right;
+        root.push(newNode);
+    }
+
+    return root.top();
+}
+
+
+void generateHuffmanCodes(const std::shared_ptr<HuffmanNode>& node, const std::string& prefix, std::vector<std::string>& huffmanCodeArr)
+{
+    if (node->left == nullptr && node->right == nullptr)
+    {
+        huffmanCodeArr[node->value] = prefix;
+    }
+    else
+    {
+        if (node->left)
+        {
+            generateHuffmanCodes(node->left, prefix + "0", huffmanCodeArr);
+        }
+        if (node->right)
+        {
+            generateHuffmanCodes(node->right, prefix + "1", huffmanCodeArr);
+        }
+    }
+}
+
+
+
 quint64 Huffman::encoding(QByteArray &compressedData,quint8 &method,unsigned short int &width,unsigned short int &height,QImage &inputimage)
 {
     QBuffer buffer(&compressedData);
@@ -76,55 +126,6 @@ quint64 Huffman::encoding(QByteArray &compressedData,quint8 &method,unsigned sho
     return buffer.size();
 
 }
-
-
-
-
-std::shared_ptr<HuffmanNode> Huffman::buildHuffmanTree(const std::vector<int> freq)
-{
-    std::priority_queue<std::shared_ptr<HuffmanNode>, std::vector<std::shared_ptr<HuffmanNode>>, Compare> root;
-
-    for (int i = 0; i < freq.size(); ++i) {
-        if (freq[i] > 0) {
-            root.push(std::make_shared<HuffmanNode>(i, freq[i]));
-        }
-    }
-
-    while (root.size() > 1) {
-        std::shared_ptr<HuffmanNode> left = root.top();
-        root.pop();
-        std::shared_ptr<HuffmanNode> right = root.top();
-        root.pop();
-
-        std::shared_ptr<HuffmanNode> newNode = std::make_shared<HuffmanNode>(0, left->frequency + right->frequency);
-        newNode->left = left;
-        newNode->right = right;
-        root.push(newNode);
-    }
-
-    return root.top();
-}
-
-
-void Huffman::generateHuffmanCodes(const std::shared_ptr<HuffmanNode>& node, const std::string& prefix, std::vector<std::string>& huffmanCodeArr) {
-    if (node->left == nullptr && node->right == nullptr)
-    {
-        huffmanCodeArr[node->value] = prefix;
-    }
-    else
-    {
-        if (node->left)
-        {
-            generateHuffmanCodes(node->left, prefix + "0", huffmanCodeArr);
-        }
-        if (node->right)
-        {
-            generateHuffmanCodes(node->right, prefix + "1", huffmanCodeArr);
-        }
-    }
-}
-
-
 
 void Huffman::decoding(QString &filename,QByteArray &imageData,quint8 &method,unsigned short int &width,unsigned short int &height,QImage &inputimage)
 {
@@ -210,5 +211,5 @@ void Huffman::decoding(QString &filename,QByteArray &imageData,quint8 &method,un
         }
         currentNode = HuffmanTree;
     }
-
+    buffer.close();
 }

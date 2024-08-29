@@ -73,5 +73,6 @@ private:
     unsigned short int width;
     unsigned short int height;
 
+
 };
 #endif // MAINWINDOW_H

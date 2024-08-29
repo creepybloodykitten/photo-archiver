@@ -54,7 +54,6 @@ void RLE::decoding(QString filename,quint8 &method,unsigned short int &width,uns
     QDataStream in(&file);
 
     in>>method>>width>>height;
-    //QImage image(width, height, QImage::Format_RGB888);
     inputimage=QImage(width, height, QImage::Format_RGB888);
     int x = 0, y = 0;
 

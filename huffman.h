@@ -34,8 +34,7 @@ class Huffman
 public:
     static quint64 encoding(QByteArray &compressedData,quint8 &method,unsigned short int &width,unsigned short int &height,QImage& inputimage);
     static void decoding(QString &filename,QByteArray &imageData,quint8 &method,unsigned short int &width,unsigned short int &height,QImage &inputimage );
-    static std::shared_ptr<HuffmanNode> buildHuffmanTree(const std::vector<int> freq) ;
-    static void generateHuffmanCodes(const std::shared_ptr<HuffmanNode>& node, const std::string& prefix, std::vector<std::string>& huffmanCodeArr);
+
 };
 
 #endif // HUFFMAN_H
