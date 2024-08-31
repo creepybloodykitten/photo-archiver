@@ -73,14 +73,6 @@ void RLE::decoding(QString filename,quint8 &method,unsigned short int &width,uns
                 x = 0;
                 ++y;
             }
-            /*
-            сделать обработчик ошибок во всех функция и во всем коде
-            if (y >= height)
-            {
-                qWarning("Decoded data exceeds image dimensions");
-                return;
-            }
-            */
             inputimage.setPixelColor(x, y, pixColor);
             ++x;
         }

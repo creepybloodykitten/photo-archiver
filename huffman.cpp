@@ -80,9 +80,11 @@ quint64 Huffman::encoding(QByteArray &compressedData,quint8 &method,unsigned sho
 
     //создаю строчку из битов
     std::string binar{""};
-    for (int y = 0; y < height; ++y) {
+    for (int y = 0; y < height; ++y)
+    {
         const QRgb* row = reinterpret_cast<const QRgb*>(inputimage.scanLine(y));
-        for (int x = 0; x < width; ++x) {
+        for (int x = 0; x < width; ++x)
+        {
             quint8 red = qRed(row[x]);
             quint8 green = qGreen(row[x]);
             quint8 blue = qBlue(row[x]);

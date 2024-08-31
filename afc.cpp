@@ -202,9 +202,9 @@ quint64 AFC::encoding(QByteArray &compressedData,quint8 &method,unsigned short i
 void generate_blocks(int domainBlock_size,int rangeBlock_size,QImage &inputimage,std::vector<Block> &domainBlocks,std::vector<Block> &rangeBlocks)
 {
 
-    for(quint16 y=0;y<inputimage.height();y+=domainBlock_size)
+    for(quint16 y=0;y<inputimage.height();y+=domainBlock_size/2)
     {
-        for(quint16 x=0;x<inputimage.width();x+=domainBlock_size)
+        for(quint16 x=0;x<inputimage.width();x+=domainBlock_size/2)
         {
             domainBlocks.push_back(Block{x,y,domainBlock_size,domainBlock_size});
         }

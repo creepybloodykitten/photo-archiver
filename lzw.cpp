@@ -4,7 +4,6 @@
 quint64 LZW::encoding(QByteArray &imageData,QByteArray &compressedData,QImage &inputimage,quint8 &method,unsigned short int &width,unsigned short int &height)
 {
     method = 3;
-
     imageData.reserve(width * height * 3);
 
     // считывание пикселей изображения в imageData
@@ -31,9 +30,12 @@ quint64 LZW::encoding(QByteArray &imageData,QByteArray &compressedData,QImage &i
     for (int i = 0; i < imageData.size(); ++i)
     {
         QByteArray wc = w + imageData[i];
-        if (dictionary.find(wc) != dictionary.end()) {
+        if (dictionary.find(wc) != dictionary.end())
+        {
             w = wc;
-        } else {
+        }
+        else
+        {
             compressed.push_back(dictionary[w]);
             dictionary[wc] = dictSize++;
             w = QByteArray(1, imageData[i]);

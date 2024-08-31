@@ -147,8 +147,6 @@ void MainWindow::update_cbox()
 
 
 //кнопка загрузки изображения: выводит на экран само изображение+его вес
-//а я получаю битовые матрицы изображения с использованием цветовой субдискретизации 4 2 0
-//провожу вычисления этих матриц именно здесь для того чтобы этими вычислениями не загружать программу в дальнейшем
 void MainWindow::on_openbtn_clicked()
 {
     compressedData.clear();
@@ -202,7 +200,8 @@ void MainWindow::on_openbtn_clicked()
 
         if(method==5)
         {
-            AFC::decoding(filename,imageData,method,width,height,inputimage);
+            ui->statusbar->showMessage("К сожалению, я не смог полноценно реализовать afc, не хватило времени(и немного знаний)");
+            return;
         }
 
     }
@@ -222,7 +221,7 @@ void MainWindow::on_openbtn_clicked()
 
 }
 
-
+//кнопка для сжатия
 void MainWindow::on_dobtn_clicked()
 {
     imageData.clear();
@@ -271,8 +270,16 @@ void MainWindow::on_dobtn_clicked()
         }
         else if(algorigms_box->currentText()=="Дискретное косинусное преобразование")
         {
-            datasize=DCT::encoding(compressedData,method,width,height,inputimage,outputimage);
-            this->labelafter->setPixmap(QPixmap::fromImage(outputimage).scaled(this->labelafter->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            if(width%8==0 &&height%8==0)
+            {
+                datasize=DCT::encoding(compressedData,method,width,height,inputimage,outputimage);
+                this->labelafter->setPixmap(QPixmap::fromImage(outputimage).scaled(this->labelafter->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            }
+            else
+            {
+                ui->statusbar->showMessage("Извините, но значения высоты и ширины не кратны 8, в дальнейшем исправим!");
+                return;
+            }
         }
         else if(algorigms_box->currentText()=="Алгоритм фрактального сжатия")
         {
@@ -288,14 +295,13 @@ void MainWindow::on_dobtn_clicked()
 
 }
 
+//для сохранения результатов
 void MainWindow::on_savebtn_clicked()
 {
     if(filename.isEmpty())
     {
         ui->statusbar->showMessage("Вы не выбрали изображение");
     }
-
-
 
     else if (algorigms_box->currentText()=="Сохранить в формате bmp/tiff/bin без сжатия")
     {
@@ -352,7 +358,6 @@ void MainWindow::on_savebtn_clicked()
             file.open(QIODevice::WriteOnly);
             file.write(compressedData);
             file.close();
-
         }
         ui->statusbar->showMessage("Успешно сохранено");
     }
@@ -362,7 +367,7 @@ void MainWindow::on_savebtn_clicked()
 
     else if(filename.endsWith(".bin", Qt::CaseInsensitive))
     {
-        if(method==1||method==2||method==3)
+        if(method==1||method==2||method==3||method==4)
         {
             QString filePath = QFileDialog::getSaveFileName(this, "Выберите куда сохранить изображение", "", "Image BMP File (*.bmp);;Image TIFF File(*.tiff);");
             if(filePath.endsWith(".bmp", Qt::CaseInsensitive))
