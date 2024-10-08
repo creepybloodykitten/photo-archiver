@@ -46,6 +46,8 @@ private slots:
 
     void on_savebtn_clicked();
 
+    void on_reset_clicked();
+
 
 
 private:
@@ -59,6 +61,7 @@ private:
     styled_btn* openbtn;
     styled_btn* savebtn;
     styled_btn* dobtn;
+    styled_btn* reset;
     QLabel *infobefore;
     QLabel *infoafter;
     QLabel *labelbefore;

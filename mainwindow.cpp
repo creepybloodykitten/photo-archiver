@@ -25,15 +25,20 @@ MainWindow::MainWindow(QWidget *parent)
     openbtn=new styled_btn(this);
     savebtn=new styled_btn(this);
     dobtn=new styled_btn(this);
+    reset=new styled_btn(this);
     openbtn->setText("Загрузить");
     connect(openbtn, &styled_btn::clicked, this, &MainWindow::on_openbtn_clicked);
     savebtn->setText("Сохранить");
     connect(savebtn,&styled_btn::clicked,this,&MainWindow::on_savebtn_clicked);
     dobtn->setText("Преобразовать");
     connect(dobtn,&styled_btn::clicked,this,&MainWindow::on_dobtn_clicked);
+    reset->setText("Сбросить");
+    reset->resize(100,40);
+    connect(reset,&styled_btn::clicked,this,&MainWindow::on_reset_clicked);
     openbtn->move(50,40);
     savebtn->move(770,510);
     dobtn->move(500,40);
+    reset->move(500,510);
 
 
     choice=new QCheckBox(this);
@@ -144,7 +149,16 @@ void MainWindow::update_cbox()
 }
 
 
+void MainWindow::on_reset_clicked()
+{
+    compressedData.clear();
+    imageData.clear();
+    infobefore->setText("Исходный:");
+    infoafter->setText("Новый:");
+    labelafter->clear();
+    labelbefore->clear();
 
+}
 
 //кнопка загрузки изображения: выводит на экран само изображение+его вес
 void MainWindow::on_openbtn_clicked()
