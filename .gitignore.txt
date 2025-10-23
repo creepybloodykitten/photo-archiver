@@ -1,0 +1,23 @@
+ /build/
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+
+# Игнорировать исполняемые файлы и библиотеки
+*.exe
+*.dll
+*.so
+*.dylib
+*.lib
+*.a
+
+# Игнорировать временные файлы
+*.o
+*.obj
+*.tmp
+*.log
+
+# Игнорировать файлы конфигурации среды разработки
+*.pro.user
+*.user
